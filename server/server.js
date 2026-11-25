@@ -142,6 +142,41 @@ app.patch('/api/books/:id', async (req, res) => {
 });
 
 
+app.delete('/api/books/:id', async (req, res) => {
+  const id = getIdOr400(req, res);
+  if (id === null) return;
+
+  const deleted = await store.remove(id);
+  if (!deleted) {
+    return res.status(404).json({ error: `Book ${id} not found` });
+  }
+  res.status(204).end();
+});
+
+app.get('/api/stats', async (req, res) => {
+  const all = await store.getAll();
+
+  const read = all.filter((book) => book.read).length;
+  const rated = all.filter((book) => book.rating !== null);
+  const averageRating =
+    rated.length === 0
+      ? null
+      : Math.round((rated.reduce((sum, book) => sum + book.rating, 0) / rated.length) * 10) / 10;
+
+  const byGenre = all.reduce(
+    (counts, book) => ({ ...counts, [book.genre]: (counts[book.genre] || 0) + 1 }),
+    {},
+  );
+
+  res.json({
+    total: all.length,
+    read,
+    unread: all.length - read,
+    averageRating,
+    byGenre,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Reading List API on http://localhost:${PORT} (allowed origin: ${CLIENT_ORIGIN})`);
 });
