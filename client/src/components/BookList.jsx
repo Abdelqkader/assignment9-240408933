@@ -1,6 +1,6 @@
 import BookItem from './BookItem.jsx';
 
-export default function BookList({ books, loading, error }) {
+export default function BookList({ books, loading, error, busyId, ...handlers }) {
   if (loading) {
     return <p className="state">Loading books…</p>;
   }
@@ -14,7 +14,7 @@ export default function BookList({ books, loading, error }) {
   return (
     <ul className="book-list">
       {books.map((book) => (
-        <BookItem key={book.id} book={book} />
+        <BookItem key={book.id} book={book} busy={busyId === book.id} {...handlers} />
       ))}
     </ul>
   );
