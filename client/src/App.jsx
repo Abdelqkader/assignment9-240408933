@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import * as api from './api/books.js';
 import Controls from './components/Controls.jsx';
 import BookList from './components/BookList.jsx';
+import BookForm from './components/BookForm.jsx';
 import StatsPanel from './components/StatsPanel.jsx';
 
 const START_FILTERS = { q: '', genre: '', read: '', sort: '', order: 'asc' };
@@ -14,6 +15,10 @@ export default function App() {
 
   const [stats, setStats] = useState(null);
   const [statsError, setStatsError] = useState('');
+
+  // Increased after every successful change, so the list and the stats
+  // are requested again from the server.
+  const [version, setVersion] = useState(0);
 
   // Book list: a new request every time the filters change.
   // The cleanup aborts the previous request, so an old (slow) response can
@@ -36,7 +41,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [filters]);
+  }, [filters, version]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,7 +55,16 @@ export default function App() {
         if (err.name !== 'AbortError') setStatsError(err.message);
       });
     return () => controller.abort();
-  }, []);
+  }, [version]);
+
+  function refresh() {
+    setVersion((v) => v + 1);
+  }
+
+  async function handleAdd(data) {
+    await api.createBook(data); // throws with the server's message on 400/409
+    refresh();
+  }
 
   return (
     <div className="app">
@@ -63,7 +77,13 @@ export default function App() {
 
       <Controls filters={filters} onChange={setFilters} />
 
-      <BookList books={books} loading={loading} error={listError} />
+      <main className="layout">
+        <BookList books={books} loading={loading} error={listError} />
+
+        <aside>
+          <BookForm onSubmit={handleAdd} />
+        </aside>
+      </main>
     </div>
   );
 }
