@@ -1,0 +1,16 @@
+{
+  "name": "reading-list-server",
+  "version": "1.0.0",
+  "description": "Assignment 9 - Reading List REST API (Express 5)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.3.0"
+  }
+}
