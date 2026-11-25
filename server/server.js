@@ -87,7 +87,6 @@ app.get('/api/books', async (req, res) => {
   res.json(result.slice(start, start + options.limit));
 });
 
-
 app.get('/api/books/:id', async (req, res) => {
   const id = getIdOr400(req, res);
   if (id === null) return;
@@ -98,7 +97,6 @@ app.get('/api/books/:id', async (req, res) => {
   }
   res.json(book);
 });
-
 
 app.post('/api/books', async (req, res) => {
   const { error, value } = validateBook(req.body);
@@ -116,7 +114,6 @@ app.post('/api/books', async (req, res) => {
   const book = await store.create(value);
   res.status(201).location(`/api/books/${book.id}`).json(book);
 });
-
 
 app.put('/api/books/:id', async (req, res) => {
   const id = getIdOr400(req, res);
@@ -185,7 +182,6 @@ app.patch('/api/books/:id', async (req, res) => {
   res.json(book);
 });
 
-
 app.delete('/api/books/:id', async (req, res) => {
   const id = getIdOr400(req, res);
   if (id === null) return;
@@ -221,7 +217,35 @@ app.get('/api/stats', async (req, res) => {
   });
 });
 
+// Deliberately throws inside an async handler, to prove that Express 5
+// passes the rejected promise to the error middleware. Kept on purpose and
+// documented in the README.
+app.get('/api/crash', async (req, res) => {
+  await store.getAll();
+  throw new Error('Test crash from /api/crash');
+});
+
+// ---------- 404 fallback ----------
+// No route matched anything under /api.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// ---------- Error handling ----------
+// Four parameters, registered after all routes.
+app.use((err, req, res, next) => {
+  // Broken JSON in the body: express.json() throws a SyntaxError with status 400.
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Malformed JSON in request body' });
+  }
+
+  console.error(err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({ error: 'Something went wrong' });
+});
+
 app.listen(PORT, () => {
   console.log(`Reading List API on http://localhost:${PORT} (allowed origin: ${CLIENT_ORIGIN})`);
 });
-
