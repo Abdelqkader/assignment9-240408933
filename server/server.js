@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import * as store from './booksStore.js';
-import { parseId, validateBook } from './validate.js';
+import { parseId, validateBook, validateQuery } from './validate.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +27,22 @@ app.use((req, res, next) => {
 
 // ---------- Helpers ----------
 
+function compareBooks(field, direction) {
+  return (a, b) => {
+    if (field === 'rating') {
+      // Books without a rating always go last, in both directions.
+      if (a.rating === null && b.rating === null) return 0;
+      if (a.rating === null) return 1;
+      if (b.rating === null) return -1;
+      return (a.rating - b.rating) * direction;
+    }
+    if (field === 'year') {
+      return (a.year - b.year) * direction;
+    }
+    return a[field].localeCompare(b[field], undefined, { sensitivity: 'base' }) * direction;
+  };
+}
+
 // Sends 400 (and returns null) when :id is not a positive integer.
 function getIdOr400(req, res) {
   const id = parseId(req.params.id);
@@ -40,9 +56,37 @@ function getIdOr400(req, res) {
 // ---------- Routes ----------
 
 app.get('/api/books', async (req, res) => {
+  const { error, value: options } = validateQuery(req.query);
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
   const all = await store.getAll();
-  res.json(all);
+
+  let result = all.filter((book) => {
+    if (options.genre !== null && book.genre !== options.genre) return false;
+    if (options.read !== null && book.read !== options.read) return false;
+    if (options.q !== '') {
+      const text = `${book.title} ${book.author}`.toLowerCase();
+      if (!text.includes(options.q)) return false;
+    }
+    return true;
+  });
+
+  // filter() already returned a new array, but I copy again before sort()
+  // so it is clear that the stored array is never sorted.
+  const direction = options.order === 'desc' ? -1 : 1;
+  if (options.sort !== null) {
+    result = [...result].sort(compareBooks(options.sort, direction));
+  } else {
+    result = [...result].sort((a, b) => (a.id - b.id) * direction);
+  }
+
+  const start = (options.page - 1) * options.limit;
+  res.set('X-Total-Count', String(result.length));
+  res.json(result.slice(start, start + options.limit));
 });
+
 
 app.get('/api/books/:id', async (req, res) => {
   const id = getIdOr400(req, res);

@@ -2,6 +2,7 @@
 // Each function returns { error } or { value } so the route decides the response.
 
 export const GENRES = ['fiction', 'non-fiction', 'science', 'history', 'fantasy', 'other'];
+export const SORT_FIELDS = ['title', 'author', 'year', 'rating'];
 
 // Route parameter :id must be a positive integer written only with digits.
 export function parseId(raw) {
@@ -69,3 +70,75 @@ export function validateBook(body) {
 
 // Query options for GET /api/books.
 // Express parses ?genre=a&genre=b into an array, which is how a repeated
+// parameter is detected.
+export function validateQuery(query) {
+  const allowed = ['genre', 'read', 'q', 'sort', 'order', 'limit', 'page'];
+  for (const key of allowed) {
+    if (Array.isArray(query[key])) {
+      return { error: `Query parameter "${key}" must be given only once` };
+    }
+    if (query[key] !== undefined && typeof query[key] !== 'string') {
+      return { error: `Query parameter "${key}" has an invalid format` };
+    }
+  }
+
+  const options = {
+    genre: null,
+    read: null,
+    q: '',
+    sort: null,
+    order: 'asc',
+    limit: 50,
+    page: 1,
+  };
+
+  if (query.genre !== undefined) {
+    if (!GENRES.includes(query.genre)) {
+      return { error: `genre must be one of: ${GENRES.join(', ')}` };
+    }
+    options.genre = query.genre;
+  }
+
+  if (query.read !== undefined) {
+    if (query.read !== 'true' && query.read !== 'false') {
+      return { error: 'read must be "true" or "false"' };
+    }
+    options.read = query.read === 'true';
+  }
+
+  if (query.q !== undefined) {
+    options.q = query.q.trim().toLowerCase();
+  }
+
+  if (query.sort !== undefined) {
+    if (!SORT_FIELDS.includes(query.sort)) {
+      return { error: `sort must be one of: ${SORT_FIELDS.join(', ')}` };
+    }
+    options.sort = query.sort;
+  }
+
+  if (query.order !== undefined) {
+    if (query.order !== 'asc' && query.order !== 'desc') {
+      return { error: 'order must be "asc" or "desc"' };
+    }
+    options.order = query.order;
+  }
+
+  if (query.limit !== undefined) {
+    const limit = /^\d+$/.test(query.limit) ? Number(query.limit) : NaN;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return { error: 'limit must be an integer from 1 to 50' };
+    }
+    options.limit = limit;
+  }
+
+  if (query.page !== undefined) {
+    const page = /^\d+$/.test(query.page) ? Number(query.page) : NaN;
+    if (!Number.isInteger(page) || page < 1) {
+      return { error: 'page must be a positive integer' };
+    }
+    options.page = page;
+  }
+
+  return { value: options };
+}
